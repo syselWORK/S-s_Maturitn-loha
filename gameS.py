@@ -13,6 +13,7 @@ score_font = pygame.font.SysFont(None, 40)
 def draw_die(surface, rect, value, color=BLACK, bg=WHITE):
     pygame.draw.rect(surface, bg, rect, border_radius=20)
     pygame.draw.rect(surface, color, rect, width=3, border_radius=20)
+    
 
     cx, cy = rect.center
     off_x = rect.width // 4
@@ -22,6 +23,7 @@ def draw_die(surface, rect, value, color=BLACK, bg=WHITE):
     for dx, dy in PIP_LAYOUT[value]:
         pip_pos = (cx + dx * off_x, cy + dy * off_y)
         pygame.draw.circle(surface, color, pip_pos, pip_radius)
+    
 
 
 def get_die_rects(count):
@@ -68,7 +70,7 @@ while running:
                 if Score > 10:
                     Score = Score - 10    
                     if dice_count < MAX_DICE:
-                        dice_count += 1
+                        dice_count =+ 1 
                         current_values.append(1)
                         final_values.append(1)
                         print(f"Dice count: {dice_count}")
@@ -86,7 +88,7 @@ while running:
             rolling = False
             if final_values.count(1) == 2:
                 final_values = [d for d in final_values if d != 1]
-                ExtraScore = 10
+                ExtraScore = 10    
             elif final_values.count(2) == 2:
                 final_values = [d for d in final_values if d != 2]
                 ExtraScore = 4

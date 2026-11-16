@@ -65,6 +65,28 @@ final_values = [1]
 
 
 
+SEGMENT_ANGLE = 360 / len(SEGMENTS)
+
+WHEEL_CENTER = (300, 255)
+WHEEL_RADIUS = 175
+RIM_WIDTH = 18
+
+FRICTION = 0.985     
+STOP_SPEED = 0.05    
+
+LIGHT_COUNT = 24
+LIGHT_BLINK_MS = 120  
+FLASH_DURATION = 600  
+
+SLOT_MULTIPLIERS = [10, 3, 1.5, 0.5, 0.2, 0.5, 1.5, 3, 10]
+SLOT_Y = 540
+SLOT_HEIGHT = 40
+
+BALL_RADIUS = 8
+GRAVITY = 0.25
+
+DROP_BUTTON_RECT = pygame.Rect(0, 0, 140, 45)
+DROP_BUTTON_RECT.center = (300, 75)
 
 ##########screen#############
 
