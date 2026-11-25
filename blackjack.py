@@ -29,24 +29,57 @@ card_font = pygame.font.SysFont("dejavusans", 26, bold=True)
 
 
 def create_deck():
-    # TODO: vytvoř seznam všech 52 karet (např. tuple (rank, suit)) a zamíchej ho
-    return []
+    # Všech 52 karet jako (rank, suit), zamíchané
+    deck = [(rank, suit) for suit in SUITS for rank in RANKS]
+    random.shuffle(deck)
+    return deck
 
 
 def hand_value(hand):
-    # TODO: sečti hodnotu ruky. J/Q/K = 10, A = 11 nebo 1
-    #       (eso počítej jako 11, a dokud je součet > 21, změň eso na 1)
-    return 0
+    # J/Q/K = 10, eso = 11, a dokud je součet > 21, eso se počítá jako 1
+    total = 0
+    aces = 0
+    for rank, _ in hand:
+        if rank in ("J", "Q", "K"):
+            total += 10
+        elif rank == "A":
+            total += 11
+            aces += 1
+        else:
+            total += int(rank)
+
+    while total > 21 and aces > 0:
+        total -= 10
+        aces -= 1
+    return total
+
+
+def is_blackjack(hand):
+    return len(hand) == 2 and hand_value(hand) == 21
 
 
 def dealer_play(deck, dealer_hand):
-    # TODO: dealer bere karty, dokud má méně než 17
-    pass
+    # Dealer bere karty, dokud má méně než 17
+    while hand_value(dealer_hand) < 17:
+        dealer_hand.append(deck.pop())
 
 
 def decide_winner(player_hand, dealer_hand):
-    # TODO: vrať "player", "dealer" nebo "push" (remíza)
-    #       nezapomeň na přetažení (> 21) a blackjack
+    player = hand_value(player_hand)
+    dealer = hand_value(dealer_hand)
+
+    if player > 21:
+        return "dealer"
+    if dealer > 21:
+        return "player"
+    if is_blackjack(player_hand) and not is_blackjack(dealer_hand):
+        return "player"
+    if is_blackjack(dealer_hand) and not is_blackjack(player_hand):
+        return "dealer"
+    if player > dealer:
+        return "player"
+    if dealer > player:
+        return "dealer"
     return "push"
 
 
@@ -89,8 +122,11 @@ def run_blackjack(score):
         screen.fill(TABLE_GREEN)
 
         draw_balance(score, bet)
-        draw_text("DEALER", (300, DEALER_Y - 25))
-        draw_text("YOU", (300, PLAYER_Y - 25))
+        # Dealerův součet ukaž až po odkrytí druhé karty
+        dealer_label = "DEALER" if state == "player_turn" or not dealer_hand else f"DEALER ({hand_value(dealer_hand)})"
+        player_label = f"YOU ({hand_value(player_hand)})" if player_hand else "YOU"
+        draw_text(dealer_label, (300, DEALER_Y - 25))
+        draw_text(player_label, (300, PLAYER_Y - 25))
 
         draw_hand(dealer_hand, DEALER_Y, hide_second=state == "player_turn")
         draw_hand(player_hand, PLAYER_Y)
@@ -119,21 +155,39 @@ def run_blackjack(score):
                     if BET_PLUS_RECT.collidepoint(event.pos):
                         bet = bet + BET_STEP
                     if DEAL_BUTTON_RECT.collidepoint(event.pos) and score >= bet:
-                        # TODO: odečti sázku, vytvoř balíček, rozdej 2 karty hráči
-                        #       a 2 dealerovi, přepni state na "player_turn"
-                        pass
+                        score -= bet
+                        deck = create_deck()
+                        player_hand = [deck.pop(), deck.pop()]
+                        dealer_hand = [deck.pop(), deck.pop()]
+                        result_text = ""
+                        # Blackjack hned z rozdání = není co hrát, rovnou vyhodnotit
+                        state = "dealer_turn" if is_blackjack(player_hand) else "player_turn"
 
                 elif state == "player_turn":
                     if HIT_BUTTON_RECT.collidepoint(event.pos):
-                        # TODO: přidej hráči kartu; když má > 21, konec kola
-                        pass
+                        player_hand.append(deck.pop())
+                        if hand_value(player_hand) >= 21:
+                            state = "dealer_turn"
                     if STAND_BUTTON_RECT.collidepoint(event.pos):
                         state = "dealer_turn"
 
         if state == "dealer_turn":
-            # TODO: dealer_play, decide_winner, vyplať výhru (bet * 2 při výhře,
-            #       bet zpět při remíze), nastav result_text a state = "result"
-            pass
+            # Když hráč přetáhl, dealer už nebere
+            if hand_value(player_hand) <= 21:
+                dealer_play(deck, dealer_hand)
+
+            winner = decide_winner(player_hand, dealer_hand)
+            if winner == "player":
+                score += bet * 2
+                result_text = f"YOU WIN {bet * 2}"
+            elif winner == "push":
+                score += bet
+                result_text = "PUSH"
+            elif hand_value(player_hand) > 21:
+                result_text = "BUST"
+            else:
+                result_text = "DEALER WINS"
+            state = "result"
 
         pygame.display.flip()
         clock.tick(60)

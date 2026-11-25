@@ -49,22 +49,67 @@ def number_color(number):
     return RED if number in RED_NUMBERS else BLACK
 
 
+POCKET_ANGLE = 360 / len(WHEEL_ORDER)
+BALL_TRACK_RADIUS = WHEEL_RADIUS * 0.68
+
+number_font = pygame.font.SysFont("segoeui", 13, bold=True)
+
+
 def is_winning_bet(bet_name, number):
-    # TODO: vrať True, pokud sázka bet_name vyhrává na čísle number
-    #       (pozor: na 0 prohrávají všechny tyhle sázky)
+    # Na 0 prohrávají všechny tyhle sázky
+    if number == 0:
+        return False
+    if bet_name == "RED":
+        return number in RED_NUMBERS
+    if bet_name == "BLACK":
+        return number not in RED_NUMBERS
+    if bet_name == "ODD":
+        return number % 2 == 1
+    if bet_name == "EVEN":
+        return number % 2 == 0
+    if bet_name == "1-18":
+        return number <= 18
+    if bet_name == "19-36":
+        return number >= 19
     return False
 
 
+def color_name(number):
+    if number == 0:
+        return "GREEN"
+    return "RED" if number in RED_NUMBERS else "BLACK"
+
+
+def point_on_circle(angle, radius):
+    a = math.radians(angle)
+    return (WHEEL_CENTER[0] + math.cos(a) * radius, WHEEL_CENTER[1] + math.sin(a) * radius)
+
+
 def draw_wheel(angle):
-    # TODO: nakresli kolo – pro každé číslo z WHEEL_ORDER výseč
-    #       v barvě number_color(číslo), otočené o angle
     pygame.draw.circle(screen, (90, 60, 30), WHEEL_CENTER, WHEEL_RADIUS + 12)
+
+    for i, number in enumerate(WHEEL_ORDER):
+        start = angle + i * POCKET_ANGLE
+        # Výseč = střed + pár bodů po oblouku, ať je kulatá
+        points = [WHEEL_CENTER]
+        for step in range(4):
+            points.append(point_on_circle(start + step * POCKET_ANGLE / 3, WHEEL_RADIUS))
+        pygame.draw.polygon(screen, number_color(number), points)
+
+        label = number_font.render(str(number), True, WHITE)
+        label = pygame.transform.rotate(label, -(start + POCKET_ANGLE / 2) - 90)
+        screen.blit(label, label.get_rect(center=point_on_circle(start + POCKET_ANGLE / 2, WHEEL_RADIUS * 0.87)))
+
+    # Vnitřní část kola, po jejímž okraji jezdí míček
+    pygame.draw.circle(screen, (90, 60, 30), WHEEL_CENTER, int(WHEEL_RADIUS * 0.55))
+    pygame.draw.circle(screen, GOLD, WHEEL_CENTER, int(WHEEL_RADIUS * 0.55), width=3)
     pygame.draw.circle(screen, WHITE, WHEEL_CENTER, WHEEL_RADIUS, width=3)
 
 
 def draw_ball(ball_angle):
-    # TODO: nakresli míček na okraji kola podle ball_angle (cos/sin)
-    pass
+    pos = point_on_circle(ball_angle, BALL_TRACK_RADIUS)
+    pygame.draw.circle(screen, WHITE, pos, 8)
+    pygame.draw.circle(screen, (150, 150, 150), pos, 8, width=1)
 
 
 def run_roulette(score):
@@ -77,6 +122,8 @@ def run_roulette(score):
     ball_angle = 0
     result_number = None
     result_text = ""
+    wheel_start = wheel_travel = 0
+    ball_start = ball_travel = 0
 
     while True:
         mouse_pos = pygame.mouse.get_pos()
@@ -113,16 +160,37 @@ def run_roulette(score):
                     if rect.collidepoint(event.pos):
                         selected_bet = i
                 if SPIN_BUTTON_RECT.collidepoint(event.pos) and selected_bet is not None and score >= bet:
-                    # TODO: odečti sázku, vyber náhodné result_number,
-                    #       spinning = True, spin_start = pygame.time.get_ticks()
-                    pass
+                    score -= bet
+                    result_number = random.choice(WHEEL_ORDER)
+                    spinning = True
+                    spin_start = pygame.time.get_ticks()
+
+                    # Výsledek je vybraný předem, takže spočítáme, o kolik se má
+                    # kolo a míček otočit, aby míček skončil přesně na jeho políčku
+                    wheel_start = wheel_angle
+                    wheel_travel = 360 * 2 + random.uniform(0, 360)
+                    pocket = WHEEL_ORDER.index(result_number)
+                    target = wheel_start + wheel_travel + (pocket + 0.5) * POCKET_ANGLE
+                    ball_start = ball_angle
+                    ball_travel = 360 * 4 + (ball_start - target) % 360
 
         if spinning:
-            # TODO: dokud neuplyne SPIN_DURATION, otáčej kolo a míček (míček opačně)
-            #       a postupně je zpomaluj
-            # TODO: po skončení: is_winning_bet -> výhra = bet + bet * výplata,
-            #       nastav result_text (např. "17 RED – YOU WIN 20")
-            pass
+            progress = min(1, (pygame.time.get_ticks() - spin_start) / SPIN_DURATION)
+            # Plynulé zpomalování (rychle na začátku, pomalu na konci)
+            ease = 1 - (1 - progress) ** 3
+            wheel_angle = (wheel_start + wheel_travel * ease) % 360
+            ball_angle = (ball_start - ball_travel * ease) % 360
+
+            if progress >= 1:
+                spinning = False
+                name, payout = BET_TYPES[selected_bet]
+                label = f"{result_number} {color_name(result_number)}"
+                if is_winning_bet(name, result_number):
+                    win = bet + bet * payout
+                    score += win
+                    result_text = f"{label} – YOU WIN {win}"
+                else:
+                    result_text = f"{label} – YOU LOSE"
 
         pygame.display.flip()
         clock.tick(60)

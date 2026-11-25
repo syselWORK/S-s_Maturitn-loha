@@ -36,24 +36,55 @@ PEGS = get_pegs()
 SLOT_RECTS = get_slot_rects()
 
 
-def drop_ball():
-    # TODO: vytvoř nový míček nahoře uprostřed (třeba dict s x, y, vx, vy, bet)
-    #       malý náhodný posun x, ať nepadá pokaždé stejně
-    pass
+def drop_ball(bet):
+    # Nový míček nahoře uprostřed, malý náhodný posun ať nepadá pokaždé stejně
+    return {
+        "x": 300 + random.uniform(-4, 4),
+        "y": PEG_START_Y - 30,
+        "vx": 0,
+        "vy": 0,
+        "bet": bet,
+    }
 
 
 def update_ball(ball):
-    # TODO: přičti gravitaci k vy, posuň míček o vx, vy
-    # TODO: když se míček dotkne kolíku (vzdálenost < PEG_RADIUS + BALL_RADIUS),
-    #       odraz ho náhodně doleva nebo doprava
-    # TODO: nepouštěj míček ven z okna (0 až 600)
-    pass
+    ball["vy"] += GRAVITY
+    ball["vx"] *= 0.99
+    ball["x"] += ball["vx"]
+    ball["y"] += ball["vy"]
+
+    hit_distance = PEG_RADIUS + BALL_RADIUS
+    for peg_x, peg_y in PEGS:
+        dx = ball["x"] - peg_x
+        dy = ball["y"] - peg_y
+        distance = (dx * dx + dy * dy) ** 0.5
+        if distance < hit_distance:
+            if distance == 0:
+                dx, dy, distance = 0, -1, 1
+            # Vytlač míček z kolíku, ať se v něm nezasekne
+            ball["x"] = peg_x + dx / distance * hit_distance
+            ball["y"] = peg_y + dy / distance * hit_distance
+            # Odraz náhodně doleva nebo doprava, trochu nahoru
+            ball["vx"] = random.choice((-1, 1)) * random.uniform(1.2, 2.2)
+            ball["vy"] = -abs(ball["vy"]) * 0.3
+            break
+
+    # Nepouštěj míček ven z okna
+    if ball["x"] < BALL_RADIUS:
+        ball["x"] = BALL_RADIUS
+        ball["vx"] = abs(ball["vx"])
+    if ball["x"] > 600 - BALL_RADIUS:
+        ball["x"] = 600 - BALL_RADIUS
+        ball["vx"] = -abs(ball["vx"])
 
 
 def check_slot(ball):
-    # TODO: když je míček dole (y >= SLOT_Y), zjisti do které přihrádky spadl
-    #       a vrať výhru = bet * násobitel. Jinak vrať None.
-    return None
+    # Když je míček dole, vrať výhru = bet * násobitel přihrádky, jinak None
+    if ball["y"] < SLOT_Y:
+        return None
+    width = 600 // len(SLOT_MULTIPLIERS)
+    index = min(int(ball["x"] // width), len(SLOT_MULTIPLIERS) - 1)
+    return round(ball["bet"] * SLOT_MULTIPLIERS[index])
 
 
 def draw_board():
@@ -67,8 +98,9 @@ def draw_board():
 
 
 def draw_ball(ball):
-    # TODO: nakresli míček (pygame.draw.circle)
-    pass
+    pos = (int(ball["x"]), int(ball["y"]))
+    pygame.draw.circle(screen, RED, pos, BALL_RADIUS)
+    pygame.draw.circle(screen, WHITE, pos, BALL_RADIUS, width=2)
 
 
 def run_plinko(score):
@@ -98,11 +130,17 @@ def run_plinko(score):
                 if BET_PLUS_RECT.collidepoint(event.pos):
                     bet = bet + BET_STEP
                 if DROP_BUTTON_RECT.collidepoint(event.pos) and score >= bet:
-                    # TODO: odečti sázku ze score a přidej míček do balls
-                    pass
+                    score -= bet
+                    balls.append(drop_ball(bet))
 
-        # TODO: pro každý míček zavolej update_ball a check_slot,
-        #       výhru přičti ke score a dopadlý míček odeber ze seznamu
+        # Kopie seznamu ([:]), protože z něj během cyklu odebíráme
+        for ball in balls[:]:
+            update_ball(ball)
+            win = check_slot(ball)
+            if win is not None:
+                score += win
+                balls.remove(ball)
+
         for ball in balls:
             draw_ball(ball)
 

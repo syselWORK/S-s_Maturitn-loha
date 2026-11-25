@@ -23,6 +23,8 @@ SEGMENTS = [
     "1", "10", "2", "1", "5", "2", "1", "JOKER",
 ]
 
+SEGMENT_ANGLE = 360 / len(SEGMENTS)
+
 
 def get_symbol_rects():
     rects = []
@@ -60,15 +62,36 @@ def draw_rim(now, spinning):
         pygame.draw.circle(screen, color, pos, 5)
 
 
+def point_on_circle(angle, radius):
+    a = math.radians(angle)
+    return (WHEEL_CENTER[0] + math.cos(a) * radius, WHEEL_CENTER[1] + math.sin(a) * radius)
+
+
 def draw_wheel(angle):
-    # TODO: pro každé políčko i ze SEGMENTS nakresli výseč (pygame.draw.polygon)
-    #       v barvě SYMBOLS[SEGMENTS[i]][1]
-    #       políčko začíná na úhlu angle + i * SEGMENT_ANGLE
-    #       bod na kraji = (cx + cos(úhel) * r, cy + sin(úhel) * r)  (math.radians!)
-    #       tip: výseč = střed + několik bodů po oblouku, ať je kulatá
-    # TODO: do prostředku každé výseče napiš název symbolu (segment_font)
-    # TODO: na hranici mezi políčky nakresli malý kolík (pygame.draw.circle
-    #       kousek od okraje) – o ty pak "ťuká" ukazatel
+    for i, name in enumerate(SEGMENTS):
+        start = angle + i * SEGMENT_ANGLE
+        color = SYMBOLS[name][1]
+
+        # Výseč = střed + pár bodů po oblouku, ať je kulatá
+        points = [WHEEL_CENTER]
+        for step in range(5):
+            points.append(point_on_circle(start + step * SEGMENT_ANGLE / 4, WHEEL_RADIUS))
+        pygame.draw.polygon(screen, color, points)
+
+        # Název symbolu otočený podél poloměru
+        middle = start + SEGMENT_ANGLE / 2
+        text_color = BLACK if color == GOLD else WHITE
+        label = segment_font.render(name, True, text_color)
+        # Na levé půlce kola otočit o 180°, jinak by byl text vzhůru nohama
+        flip = 180 if 90 < middle % 360 < 270 else 0
+        label = pygame.transform.rotate(label, -middle + flip)
+        screen.blit(label, label.get_rect(center=point_on_circle(middle, WHEEL_RADIUS * 0.66)))
+
+    # Kolíky na hranicích políček – o ty "ťuká" ukazatel
+    for i in range(len(SEGMENTS)):
+        peg = point_on_circle(angle + i * SEGMENT_ANGLE, WHEEL_RADIUS - 7)
+        pygame.draw.circle(screen, WHITE, peg, 4)
+
     pygame.draw.circle(screen, WHITE, WHEEL_CENTER, WHEEL_RADIUS, width=3)
 
     # Střed kola
@@ -118,22 +141,24 @@ def draw_flash(flash_color, flash_start, now):
 
 # ---------------------------------------------------------------- logika
 
+def segment_index_at_pointer(angle):
+    # Ukazatel je nahoře = 270° (osa y míří dolů)
+    return int((270 - angle) % 360 // SEGMENT_ANGLE)
+
+
 def get_segment_at_pointer(angle):
-    # TODO: podle úhlu kola zjisti, které políčko je pod ukazatelem (nahoře = 270°)
-    #       a vrať jeho název ze SEGMENTS
-    #       tip: (270 - angle) % 360 // SEGMENT_ANGLE
-    return SEGMENTS[0]
+    return SEGMENTS[segment_index_at_pointer(angle)]
 
 
 def passed_peg(old_angle, new_angle):
-    # TODO: vrať True, pokud mezi old_angle a new_angle prošel ukazatelem kolík
-    #       (tj. změnilo se číslo políčka pod ukazatelem)
-    return False
+    # Kolík prošel ukazatelem = změnilo se políčko pod ukazatelem
+    return segment_index_at_pointer(old_angle) != segment_index_at_pointer(new_angle)
 
 
 def payout_for(selected, landed, bet):
-    # TODO: když landed == selected, vrať bet + bet * výplata, jinak 0
-    return 0
+    if landed != selected:
+        return 0
+    return bet + bet * SYMBOLS[selected][0]
 
 
 # ---------------------------------------------------------------- hlavní smyčka
@@ -186,17 +211,31 @@ def run_wheel(score):
                     if rect.collidepoint(event.pos):
                         selected = name
                 if SPIN_BUTTON_RECT.collidepoint(event.pos) and selected is not None and score >= bet:
-                    # TODO: odečti sázku, nastav náhodnou počáteční rychlost
-                    #       (random.uniform), spinning = True, smaž result_text
-                    pass
+                    score -= bet
+                    speed = random.uniform(8, 14)
+                    spinning = True
+                    result_text = ""
 
         if spinning:
-            # TODO: ulož starý úhel, otoč kolo (angle += speed), zpomal (speed *= FRICTION)
-            # TODO: když passed_peg(...): pointer_kick = -20 (ukazatel cvakne)
-            # TODO: když speed < STOP_SPEED: spinning = False, zjisti políčko,
-            #       přičti payout_for(...) ke score, nastav result_text
-            #       a záblesk: flash_color = zelená/červená, flash_start = now
-            pass
+            old_angle = angle
+            angle = (angle + speed) % 360
+            speed *= FRICTION
+
+            if passed_peg(old_angle, angle):
+                pointer_kick = -20
+
+            if speed < STOP_SPEED:
+                spinning = False
+                landed = get_segment_at_pointer(angle)
+                win = payout_for(selected, landed, bet)
+                score += win
+                if win > 0:
+                    result_text = f"{landed} – YOU WIN {win}"
+                    flash_color = (60, 170, 90)
+                else:
+                    result_text = f"{landed} – no luck"
+                    flash_color = RED
+                flash_start = now
 
         # Ukazatel se po cvaknutí pomalu vrací zpět
         pointer_kick *= 0.8

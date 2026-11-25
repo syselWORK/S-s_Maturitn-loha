@@ -59,13 +59,11 @@ Score = 0
 Check = 0
 ExtraScore = 0
 dice_count = 3
-current_values = [1]
-final_values = [1]
+current_values = [1] * dice_count
+final_values = [1] * dice_count
 
 
 
-
-SEGMENT_ANGLE = 360 / len(SEGMENTS)
 
 WHEEL_CENTER = (300, 255)
 WHEEL_RADIUS = 175
@@ -99,5 +97,5 @@ pygame.display.set_caption("KostkyMaturita")
 TITLE_RECT = pygame.Rect(0, 0, 500, 230)
 TITLE_RECT.center = (300, 140)
 
-title_image = pygame.image.load("dice.png").convert_alpha()
+title_image = pygame.image.load("/home/sysel/Projects/TEST/Maturitni_projekty_IT4_2026-2027/dice.png").convert_alpha()
 title_image = pygame.transform.smoothscale(title_image, TITLE_RECT.size)

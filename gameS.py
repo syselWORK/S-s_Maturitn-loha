@@ -63,17 +63,17 @@ while running:
                 roll_start = pygame.time.get_ticks()
                 last_flicker = roll_start
                 Check = 0
+                ExtraScore = 0
                 print("Rolling...")
                
 
             if add_die_button_rect.collidepoint(event.pos) and not rolling:
-                if Score > 10:
-                    Score = Score - 10    
-                    if dice_count < MAX_DICE:
-                        dice_count =+ 1 
-                        current_values.append(1)
-                        final_values.append(1)
-                        print(f"Dice count: {dice_count}")
+                if Score >= 10 and dice_count < MAX_DICE:
+                    Score = Score - 10
+                    dice_count += 1
+                    current_values.append(1)
+                    final_values.append(1)
+                    print(f"Dice count: {dice_count}")
                 else:
                     continue
 
